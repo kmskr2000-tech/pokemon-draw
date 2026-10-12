@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>민준이 포켓몬 그리기</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; overscroll-behavior:none; }
+  body {
+    font-family:"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    background:linear-gradient(160deg,#fff8e7 0%,#ffe9c7 100%);
+    display:flex; flex-direction:column; align-items:center;
+    user-select:none; -webkit-user-select:none; touch-action:manipulation;
+    color:#5b3a1e;
+  }
+  .screen { display:none; width:100%; max-width:560px; flex-direction:column; align-items:center; padding:16px; }
+  .screen.on { display:flex; }
+  h1 { font-size:28px; margin:18px 0 4px; }
+  .sub { font-size:15px; color:#a07c4f; margin-bottom:18px; }
+
+  /* 홈 캐릭터 카드 */
+  .cards { display:flex; gap:16px; width:100%; justify-content:center; flex-wrap:wrap; }
+  .card {
+    background:#fff; border-radius:20px; padding:14px; width:200px; cursor:pointer;
+    box-shadow:0 4px 14px rgba(180,130,60,.18); border:3px solid transparent;
+    text-align:center; transition:transform .12s;
+  }
+  .card:active { transform:scale(.96); }
+  .card img { width:100%; border-radius:12px; background:#fff; }
+  .card .nm { font-size:19px; font-weight:800; margin-top:8px; }
+  .card .go { font-size:14px; color:#fff; background:#ff9f2e; border-radius:999px; padding:6px 0; margin-top:8px; font-weight:700; }
+
+  .gallery-link {
+    margin-top:22px; font-size:16px; font-weight:700; color:#a07c4f;
+    background:#fff; border:2px solid #f0d9ae; border-radius:999px; padding:10px 26px; cursor:pointer;
+  }
+
+  /* 그리기 화면 */
+  .topbar { width:100%; display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .back {
+    font-size:15px; font-weight:700; background:#fff; border:2px solid #f0d9ae; color:#a07c4f;
+    border-radius:999px; padding:8px 16px; cursor:pointer;
+  }
+  .modetitle { font-size:20px; font-weight:800; }
+  .stage-wrap {
+    position:relative; width:100%; max-width:520px; aspect-ratio:1/1;
+    background:#fff; border-radius:18px; overflow:hidden;
+    box-shadow:0 4px 16px rgba(180,130,60,.20); border:3px solid #f0d9ae;
+    touch-action:none;
+  }
+  .stage-wrap canvas { position:absolute; inset:0; width:100%; height:100%; }
+  #paintCanvas { z-index:1; }
+  #linesCanvas { z-index:2; pointer-events:none; }
+  #traceCanvas { z-index:3; }
+
+  .cheer {
+    min-height:34px; font-size:19px; font-weight:800; color:#e07b1a; margin:12px 0 4px;
+    text-align:center; transition:opacity .3s;
+  }
+  .toolbar { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; justify-content:center; }
+  .btn {
+    font-size:17px; font-weight:800; border:none; border-radius:999px; padding:13px 26px; cursor:pointer;
+    color:#fff; background:#ff9f2e; box-shadow:0 3px 0 #d97f16;
+  }
+  .btn:active { transform:translateY(2px); box-shadow:none; }
+  .btn.gray { background:#b9a88f; box-shadow:0 3px 0 #97876d; }
+  .btn.green { background:#58b368; box-shadow:0 3px 0 #3f9150; }
+
+  /* 팔레트 */
+  .palette { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; justify-content:center; max-width:520px; }
+  .sw {
+    width:52px; height:52px; border-radius:50%; cursor:pointer; border:4px solid #fff;
+    box-shadow:0 2px 6px rgba(0,0,0,.18);
+  }
+  .sw.sel { border-color:#5b3a1e; transform:scale(1.12); }
+
+  /* 축하 오버레이 */
+  #celebrate {
+    position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    flex-direction:column; background:rgba(255,248,231,.92); z-index:50; text-align:center; padding:20px;
+  }
+  #celebrate.on { display:flex; }
+  #celebrate .big { font-size:44px; margin-bottom:8px; }
+  #celebrate .msg { font-size:24px; font-weight:800; margin-bottom:20px; }
+  #confettiCanvas { position:fixed; inset:0; pointer-events:none; z-index:49; }
+
+  /* 갤러리 */
+  .ggrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; }
+  .gitem { background:#fff; border-radius:14px; padding:8px; box-shadow:0 2px 8px rgba(180,130,60,.15); position:relative; }
+  .gitem img { width:100%; border-radius:8px; display:block; }
+  .gitem .del {
+    position:absolute; top:2px; right:2px; width:30px; height:30px; border-radius:50%;
+    background:rgba(0,0,0,.55); color:#fff; border:none; font-size:15px; cursor:pointer;
+  }
+  .empty { color:#a07c4f; font-size:16px; margin-top:40px; text-align:center; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<!-- 홈 -->
+<div class="screen on" id="scr-home">
+  <h1>🎨 민준이 포켓몬 그리기</h1>
+  <div class="sub">선 따라 그리기 → 색칠하기!</div>
+  <div class="cards" id="cards"></div>
+  <button class="gallery-link" onclick="show('scr-gallery');renderGallery()">🖼️ 내가 그린 그림 보기</button>
+</div>
+
+<!-- 그리기 -->
+<div class="screen" id="scr-draw">
+  <div class="topbar">
+    <button class="back" onclick="goHome()">◀ 처음으로</button>
+    <div class="modetitle" id="modeTitle">✏️ 선 따라 그리기</div>
+    <div style="width:86px"></div>
+  </div>
+  <div class="stage-wrap" id="stage">
+    <canvas id="paintCanvas"></canvas>
+    <canvas id="linesCanvas"></canvas>
+    <canvas id="traceCanvas"></canvas>
+  </div>
+  <div class="cheer" id="cheer"></div>
+  <div class="toolbar" id="traceTools">
+    <button class="btn gray" onclick="clearTrace()">지우개</button>
+    <button class="btn green" onclick="finishTrace()">다 그렸어요! ⭐</button>
+  </div>
+  <div id="colorTools" style="display:none;flex-direction:column;align-items:center">
+    <div class="palette" id="palette"></div>
+    <div class="toolbar">
+      <button class="btn gray" onclick="undoPaint()">되돌리기</button>
+      <button class="btn gray" onclick="clearPaint()">색 다 지우기</button>
+      <button class="btn" onclick="saveArt()">💾 저장하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 축하 -->
+<div id="celebrate">
+  <div class="big">🎉🎉🎉</div>
+  <div class="msg" id="celebrateMsg">정말 잘 그렸어요!<br>이제 색칠해 봐요!</div>
+  <button class="btn" onclick="toColorMode()">색칠하러 가기 🖌️</button>
+</div>
+<canvas id="confettiCanvas"></canvas>
+
+<!-- 갤러리 -->
+<div class="screen" id="scr-gallery">
+  <div class="topbar">
+    <button class="back" onclick="goHome()">◀ 처음으로</button>
+    <div class="modetitle">🖼️ 내가 그린 그림</div>
+    <div style="width:86px"></div>
+  </div>
+  <div class="ggrid" id="ggrid"></div>
+  <div class="empty" id="gempty" style="display:none">아직 그린 그림이 없어요.<br>첫 그림을 그려보세요! 🎨</div>
+</div>
+
+<script>
+const POKEMON = [
+  { id:'charizard', name:'메가 리자몽', img:'assets/mega-charizard-x.png' },
+  { id:'blastoise', name:'거북왕', img:'assets/blastoise.png' },
+];
+const COLORS = ['#e23b3b','#ff7f2a','#ffcf3f','#7ed957','#2ea86d','#3fa9f5','#2b5fc7','#9b5de5','#f15bb5','#8b5a2b','#ffffff','#333333'];
+
+let cur = null;               // 현재 포켓몬
+let mode = 'trace';           // 'trace' | 'color'
+let lineArt = null;           // 흰배경 제거된 선화 캔버스
+let strokeCount = 0;
+let drawing = false, last = null;
+let paintStrokes = [];        // undo용
+let curColor = COLORS[0];
+
+const $ = id => document.getElementById(id);
+const stage = $('stage'), paintC = $('paintCanvas'), linesC = $('linesCanvas'), traceC = $('traceCanvas');
+const SIZE = 900;
+[paintC, linesC, traceC].forEach(c => { c.width = SIZE; c.height = SIZE; });
+const pctx = paintC.getContext('2d'), lctx = linesC.getContext('2d'), tctx = traceC.getContext('2d');
+
+/* ---------- 홈 ---------- */
+POKEMON.forEach(p => {
+  const d = document.createElement('div');
+  d.className = 'card';
+  d.innerHTML = `<img src="${p.img}" alt="${p.name}"><div class="nm">${p.name}</div><div class="go">그리기 시작!</div>`;
+  d.onclick = () => startDraw(p);
+  $('cards').appendChild(d);
+});
+function show(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  $(id).classList.add('on');
+  window.scrollTo(0,0);
+}
+function goHome(){ show('scr-home'); }
+
+/* ---------- 선화 처리 (흰 배경 투명화) ---------- */
+function processLineArt(img){
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const x = c.getContext('2d');
+  x.drawImage(img, 0, 0);
+  const d = x.getImageData(0,0,c.width,c.height), p = d.data;
+  for (let i=0;i<p.length;i+=4){
+    if (p[i]>235 && p[i+1]>235 && p[i+2]>235) p[i+3] = 0;
+  }
+  x.putImageData(d,0,0);
+  return c;
+}
+function drawLinesTo(ctx, opacity){
+  ctx.clearRect(0,0,SIZE,SIZE);
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  const s = Math.min(SIZE/lineArt.width, SIZE/lineArt.height)*0.94;
+  const w = lineArt.width*s, h = lineArt.height*s;
+  ctx.drawImage(lineArt, (SIZE-w)/2, (SIZE-h)/2, w, h);
+  ctx.restore();
+}
+
+/* ---------- 그리기 시작 ---------- */
+function startDraw(p){
+  cur = p; mode = 'trace'; strokeCount = 0; paintStrokes = [];
+  pctx.clearRect(0,0,SIZE,SIZE); tctx.clearRect(0,0,SIZE,SIZE);
+  $('cheer').textContent = '연한 선을 손가락으로 따라 그려보세요! ✏️';
+  $('modeTitle').textContent = '✏️ 선 따라 그리기';
+  $('traceTools').style.display = 'flex';
+  $('colorTools').style.display = 'none';
+  traceC.style.display = 'block';
+  const img = new Image();
+  img.onload = () => {
+    lineArt = processLineArt(img);
+    drawLinesTo(lctx, 0.28);
+    show('scr-draw');
+  };
+  img.src = p.img;
+}
+
+/* ---------- 입력 ---------- */
+function pos(e){
+  const r = stage.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x:(t.clientX-r.left)/r.width*SIZE, y:(t.clientY-r.top)/r.height*SIZE };
+}
+function strokeStyle(ctx, color, width){
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+}
+stage.addEventListener('pointerdown', e => {
+  e.preventDefault(); drawing = true; last = pos(e);
+  if (mode==='color'){
+    paintStrokes.push(pctx.getImageData(0,0,SIZE,SIZE));
+    if (paintStrokes.length > 25) paintStrokes.shift();
+  }
+});
+stage.addEventListener('pointermove', e => {
+  if (!drawing) return;
+  e.preventDefault();
+  const p = pos(e);
+  if (mode==='trace'){
+    strokeStyle(tctx, '#3a3a3a', 11);
+    tctx.beginPath(); tctx.moveTo(last.x,last.y); tctx.lineTo(p.x,p.y); tctx.stroke();
+  } else {
+    strokeStyle(pctx, curColor, 30);
+    pctx.beginPath(); pctx.moveTo(last.x,last.y); pctx.lineTo(p.x,p.y); pctx.stroke();
+  }
+  last = p;
+});
+['pointerup','pointerleave','pointercancel'].forEach(ev =>
+  stage.addEventListener(ev, () => {
+    if (drawing && mode==='trace'){
+      strokeCount++;
+      cheer();
+    }
+    drawing = false;
+  })
+);
+function cheer(){
+  const msgs = { 5:'잘하고 있어요! 👍', 12:'우와, 멋져요! ✨', 25:'거의 다 됐어요! 💪', 40:'대단해요! 🌟' };
+  if (msgs[strokeCount]){
+    const el = $('cheer');
+    el.textContent = msgs[strokeCount];
+    blip();
+  }
+}
+
+/* ---------- 효과음 ---------- */
+let AC = null;
+function blip(){
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.connect(g); g.connect(AC.destination);
+    o.frequency.value = 660 + Math.random()*220;
+    g.gain.setValueAtTime(.12, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, AC.currentTime+.25);
+    o.start(); o.stop(AC.currentTime+.25);
+  }catch(e){}
+}
+function fanfare(){
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    [523,659,784,1047].forEach((f,i)=>{
+      const o=AC.createOscillator(), g=AC.createGain();
+      o.connect(g); g.connect(AC.destination);
+      o.frequency.value=f; o.type='triangle';
+      const t=AC.currentTime+i*.16;
+      g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.2,t+.05);
+      g.gain.exponentialRampToValueAtTime(.001,t+.5);
+      o.start(t); o.stop(t+.55);
+    });
+  }catch(e){}
+}
+
+/* ---------- 폭죽 ---------- */
+function confetti(){
+  const c = $('confettiCanvas'), x = c.getContext('2d');
+  c.width = innerWidth; c.height = innerHeight;
+  const ps = [];
+  const cols = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff9f2e','#c780fa'];
+  for (let i=0;i<140;i++) ps.push({
+    x:Math.random()*c.width, y:-20-Math.random()*c.height*.4,
+    w:6+Math.random()*8, h:8+Math.random()*10,
+    vy:2+Math.random()*3.5, vx:-1.5+Math.random()*3,
+    r:Math.random()*Math.PI, vr:-.1+Math.random()*.2,
+    col:cols[i%cols.length]
+  });
+  let frames = 0;
+  (function tick(){
+    x.clearRect(0,0,c.width,c.height);
+    ps.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.r+=p.vr;
+      x.save(); x.translate(p.x,p.y); x.rotate(p.r);
+      x.fillStyle=p.col; x.fillRect(-p.w/2,-p.h/2,p.w,p.h); x.restore();
+    });
+    if (++frames < 220) requestAnimationFrame(tick);
+    else x.clearRect(0,0,c.width,c.height);
+  })();
+}
+
+/* ---------- 모드 전환 ---------- */
+function clearTrace(){ tctx.clearRect(0,0,SIZE,SIZE); }
+function finishTrace(){
+  fanfare(); confetti();
+  $('celebrateMsg').innerHTML = `${cur.name} 선 따라 그리기 완성!<br>정말 잘했어요! 🎉`;
+  $('celebrate').classList.add('on');
+}
+function toColorMode(){
+  $('celebrate').classList.remove('on');
+  mode = 'color';
+  tctx.clearRect(0,0,SIZE,SIZE);
+  traceC.style.display = 'none';
+  drawLinesTo(lctx, 1);
+  $('modeTitle').textContent = '🖌️ 색칠하기';
+  $('cheer').textContent = '마음에 드는 색을 골라 칠해보세요!';
+  $('traceTools').style.display = 'none';
+  $('colorTools').style.display = 'flex';
+  buildPalette();
+}
+function buildPalette(){
+  const pal = $('palette'); pal.innerHTML = '';
+  COLORS.forEach((c,i)=>{
+    const s = document.createElement('div');
+    s.className = 'sw' + (i===0?' sel':'');
+    s.style.background = c;
+    s.onclick = () => {
+      curColor = c;
+      pal.querySelectorAll('.sw').forEach(e=>e.classList.remove('sel'));
+      s.classList.add('sel'); blip();
+    };
+    pal.appendChild(s);
+  });
+  curColor = COLORS[0];
+}
+function undoPaint(){
+  const prev = paintStrokes.pop();
+  if (prev) pctx.putImageData(prev,0,0);
+}
+function clearPaint(){
+  paintStrokes.push(pctx.getImageData(0,0,SIZE,SIZE));
+  pctx.clearRect(0,0,SIZE,SIZE);
+}
+
+/* ---------- 저장 & 갤러리 ---------- */
+function saveArt(){
+  const ex = document.createElement('canvas');
+  ex.width = SIZE; ex.height = SIZE;
+  const x = ex.getContext('2d');
+  x.fillStyle = '#ffffff'; x.fillRect(0,0,SIZE,SIZE);
+  x.drawImage(paintC,0,0);
+  x.drawImage(linesC,0,0);
+  const url = ex.toDataURL('image/png');
+  let g = [];
+  try{ g = JSON.parse(localStorage.getItem('minjun-draw-gallery')||'[]'); }catch(e){}
+  g.unshift({ name:cur.name, date:new Date().toLocaleDateString('ko-KR'), url });
+  g = g.slice(0,24);
+  try{ localStorage.setItem('minjun-draw-gallery', JSON.stringify(g)); }catch(e){}
+  fanfare(); confetti();
+  $('cheer').textContent = '저장됐어요! 갤러리에서 볼 수 있어요 🖼️';
+  const a = document.createElement('a');
+  a.href = url; a.download = `${cur.name}-그림.png`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function renderGallery(){
+  let g = [];
+  try{ g = JSON.parse(localStorage.getItem('minjun-draw-gallery')||'[]'); }catch(e){}
+  const grid = $('ggrid'); grid.innerHTML = '';
+  $('gempty').style.display = g.length ? 'none' : 'block';
+  g.forEach((it,idx)=>{
+    const d = document.createElement('div');
+    d.className = 'gitem';
+    d.innerHTML = `<img src="${it.url}"><button class="del">✕</button><div style="font-size:13px;color:#a07c4f;margin-top:4px">${it.name} · ${it.date}</div>`;
+    d.querySelector('.del').onclick = ev => {
+      ev.stopPropagation();
+      g.splice(idx,1);
+      try{ localStorage.setItem('minjun-draw-gallery', JSON.stringify(g)); }catch(e){}
+      renderGallery();
+    };
+    grid.appendChild(d);
+  });
+}
+</script>
+</body>
+</html>
